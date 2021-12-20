@@ -2,7 +2,7 @@ from typing import Iterator
 
 from inflate.format import JSON, Collection, Item
 from inflate.request import make_call, requests
-from inflate.scrapers import Scraper
+from inflate.scrapers.scraper import Scraper
 from inflate.utils import logger, robust
 
 EMPTY_ITEM = {"metaData": {}, "pageCount": 0, "storeProductInfos": []}
