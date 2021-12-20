@@ -25,8 +25,8 @@ jobs:
         env:
           PRODUCTION: "true"
 
-    - uses: actions/upload-artifact@v2
-      with:
-        name: data
-        path: data/
+      - uses: actions/upload-artifact@v2
+        with:
+          name: data
+          path: data/
 
