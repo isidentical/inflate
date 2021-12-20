@@ -1,0 +1,32 @@
+name: "Collect data"
+
+on:
+  schedule:
+    - cron:  '30 12 * * *'
+  workflow_dispatch:
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: actions/setup-python@v2
+        with:
+          python-version: 3.9
+
+      - name: Install deps
+        run: pip install requests requests-cache
+
+      - name: Collect data
+        run: python dumpers/run.py
+        env:
+          PRODUCTION: "true"
+
+      - name: Commit PDF
+        run: |
+          git config --global user.name 'inflate builder'
+          git config --global user.email 'inflate@tree.science'
+          git add .
+          git commit -am "Upload data" --allow-empty
+          git push
