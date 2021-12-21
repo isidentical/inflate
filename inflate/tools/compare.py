@@ -10,6 +10,7 @@ from typing import Any, List, Set, Tuple
 from inflate.format import JSON
 
 Product = Tuple[str, int]
+PriceChange = Tuple[str, int, int]
 
 
 @dataclass
@@ -42,6 +43,19 @@ class Database:
         return added, deleted, changed
 
 
+def split_changed(
+    changed: Set[Tuple[Product, Product]]
+) -> Tuple[List[PriceChange], List[PriceChange]]:
+    increase, decrease = [], []
+    for (name, price_1), (_, price_2) in changed:
+        change = (name, price_1, price_2)
+        if price_2 > price_1:
+            increase.append(change)
+        else:
+            decrease.append(change)
+    return increase, decrease
+
+
 def read_file(file_1: Path) -> JSON:
     if file_1.suffix.endswith("gz"):
         manager = gzip.open(file_1, "rt")
@@ -57,14 +71,12 @@ def compare_data(file_1: Path, file_2: Path, /) -> None:
     db_2 = read_file(file_2)
 
     added, deleted, changed = db_1.compare(db_2)
-    for label, items in [
-        ("added", added),
-        ("deleted", deleted),
-        ("changed", changed),
-    ]:
+    increase, decrease = split_changed(changed)
+    for label, items in [("zam", increase), ("indirim", decrease)]:
         print(label)
-        for item in items:
-            print("   ", item)
+        for name, price_1, price_2 in items:
+            print(f"  {name}")
+            print(f"    {price_1} -> {price_2}")
 
 
 def main(argv: Optional[List[str]] = None) -> None:
