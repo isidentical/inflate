@@ -1,5 +1,6 @@
 import logging
 import os
+from collections import deque
 from functools import wraps
 
 PRODUCTION = os.getenv("PRODUCTION")
@@ -27,3 +28,7 @@ def robust(default):
         return wrapper
 
     return outer
+
+
+def exhaust(iterable):
+    return deque(iterable, maxlen=0)

@@ -5,6 +5,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Optional
 
+from inflate.format import DATE_FMT
 from inflate.scrapers import AVAILABLE_SCRAPERS, run_scrapers
 
 
@@ -27,7 +28,7 @@ def main(argv: Optional[List[str]] = None) -> None:
         path = (
             options.datastore
             / collection.name
-            / datetime.now().strftime("%y%m%d_%H%M%S")
+            / datetime.now().strftime(DATE_FMT)
         )
         path.parent.mkdir(parents=True, exist_ok=True)
 
