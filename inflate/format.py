@@ -122,7 +122,7 @@ class MergedCollection(Node):
     @cached_property
     def price_map(self) -> Dict[datetime.date, List[Tuple[str, float]]]:
         price_map = defaultdict(list)
-        for name, price_deltas in self.items.items():
+        for (name, _), price_deltas in self.items.items():
             price = None
 
             for date, price_delta in zip(self.collection_dates, price_deltas):

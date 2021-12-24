@@ -119,18 +119,60 @@ def generate_collections() -> MergedCollections:
     return stores
 
 
-def find_most_volatile(collection: MergedCollections) -> None:
+def find_most_volatile(
+    collection: MergedCollections, *, volatility_threshold: int = 3
+) -> None:
     groups = defaultdict(dict)
     for name, dated_prices in collection.price_map.items():
         groups[len(dated_prices)][name] = [
             dated_price[1] for dated_price in dated_prices
         ]
 
-    for key, sub_map in sorted(groups.items(), key=lambda kv: kv[0]):
-        if key <= 3:
+    for key, sub_map in sorted(groups.items()):
+        if key <= volatility_threshold:
             continue
 
         print(key)
         print("=" * 50)
         for name, price in sub_map.items():
             print("  ", name, "=>", price)
+
+
+def find_highest_price_gap(
+    collection: MergedCollections, *, max_items: int = 20
+) -> None:
+    gaps = {}
+    for name, dated_prices in collection.price_map.items():
+        min_price = min(dated_prices, key=lambda kv: kv[1])
+        max_price = max(dated_prices, key=lambda kv: kv[1])
+        gap = abs(max_price[1] - min_price[1])
+        gaps[gap] = (name, min_price, max_price)
+
+    for index, (gap, _) in enumerate(sorted(gaps.items())[:max_items]):
+        print(f"{index}.", name, gap, "TRY")
+
+
+def best_sales(collection: MergedCollections, *, max_items: int = 50) -> None:
+    gaps = {}
+    for name, dated_prices in collection.price_map.items():
+        if len(dated_prices) <= 1:
+            continue
+        current_price = dated_prices[-1]
+        first_price = dated_prices[0]
+        gaps[first_price[1] - current_price[1]] = (
+            name,
+            first_price,
+            current_price,
+        )
+
+    for index, [
+        gap,
+        (name, (_, first_price), (_, last_price)),
+    ] in enumerate(sorted(gaps.items(), reverse=True)[:max_items]):
+        print(
+            f"{index}.",
+            name,
+            f"{gap:5.3f}",
+            "lira",
+            f"({first_price} -> {last_price})",
+        )
