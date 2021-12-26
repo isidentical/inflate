@@ -2,14 +2,17 @@ import datetime
 import io
 import json
 import os
+import textwrap
 import zipfile
+from argparse import ArgumentParser
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Dict, Iterator
+from typing import Dict, Iterator, Literal
 
 import requests
+from rich import print
 from rich.progress import track
 
 from inflate.format import (
@@ -120,59 +123,80 @@ def generate_collections() -> MergedCollections:
 
 
 def find_most_volatile(
-    collection: MergedCollections, *, volatility_threshold: int = 3
+    collection: MergedCollection, *, volatility_threshold: int = 3
 ) -> None:
     groups = defaultdict(dict)
-    for name, dated_prices in collection.price_map.items():
-        groups[len(dated_prices)][name] = [
-            dated_price[1] for dated_price in dated_prices
-        ]
-
-    for key, sub_map in sorted(groups.items()):
-        if key <= volatility_threshold:
+    for name, prices in collection.price_map.items():
+        num_prices = len(prices)
+        if num_prices <= volatility_threshold:
             continue
 
-        print(key)
+        groups[len(prices)][name] = prices
+
+    for num_prices, group in sorted(groups.items()):
+        print(num_prices)
         print("=" * 50)
-        for name, price in sub_map.items():
-            print("  ", name, "=>", price)
+        for name, prices in group.items():
+            print("  ", name, "=>", prices)
 
 
-def find_highest_price_gap(
-    collection: MergedCollections, *, max_items: int = 20
+def price_changes(
+    collection: MergedCollection, *, max_items: int = 50
 ) -> None:
-    gaps = {}
-    for name, dated_prices in collection.price_map.items():
-        min_price = min(dated_prices, key=lambda kv: kv[1])
-        max_price = max(dated_prices, key=lambda kv: kv[1])
-        gap = abs(max_price[1] - min_price[1])
-        gaps[gap] = (name, min_price, max_price)
+    def dump_price_changes(data):
+        for index, (change, [name, initial_price, current_price]) in enumerate(
+            data[:max_items]
+        ):
+            print(
+                f"{index}.".ljust(3),
+                repr(textwrap.shorten(name, width=45)).ljust(50),
+                f"{change:6.1f} TRY",
+                f"({initial_price:6.1f} -> {current_price:6.1f})",
+            )
 
-    for index, (gap, _) in enumerate(sorted(gaps.items())[:max_items]):
-        print(f"{index}.", name, gap, "TRY")
-
-
-def best_sales(collection: MergedCollections, *, max_items: int = 50) -> None:
-    gaps = {}
-    for name, dated_prices in collection.price_map.items():
-        if len(dated_prices) <= 1:
+    increased, decreased = {}, {}
+    for name, prices in collection.price_map.items():
+        if len(prices) <= 1:
             continue
-        current_price = dated_prices[-1]
-        first_price = dated_prices[0]
-        gaps[first_price[1] - current_price[1]] = (
-            name,
-            first_price,
-            current_price,
+
+        initial_price, current_price = prices[-2], prices[-1]
+        change = current_price - initial_price
+        if change > 0:
+            data = increased
+        elif change < 0:
+            data = decreased
+        else:
+            continue
+
+        data[change] = (name, initial_price, current_price)
+
+    if increased:
+        print("[green][bold] Zamlar [/bold][/green]")
+        dump_price_changes(sorted(increased.items(), reverse=True))
+
+    if decreased:
+        print("[red][bold] Indirimler [/bold][/red]")
+        dump_price_changes(sorted(decreased.items()))
+
+
+ANALYZERS = {"price_changes": price_changes, "volatility": find_most_volatile}
+
+
+def main():
+    parser = ArgumentParser()
+    parser.add_argument("store", type=str.lower)
+    parser.add_argument("analysis", choices=ANALYZERS.keys())
+
+    options = parser.parse_args()
+
+    collections = generate_collections()
+    if options.store not in collections:
+        parser.error(
+            "store must be one of these: " + ", ".join(collections.keys())
         )
 
-    for index, [
-        gap,
-        (name, (_, first_price), (_, last_price)),
-    ] in enumerate(sorted(gaps.items(), reverse=True)[:max_items]):
-        print(
-            f"{index}.",
-            name,
-            f"{gap:5.3f}",
-            "lira",
-            f"({first_price} -> {last_price})",
-        )
+    ANALYZERS[options.analysis](collections[options.store])
+
+
+if __name__ == "__main__":
+    main()

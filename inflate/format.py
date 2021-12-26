@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import datetime
-from collections import defaultdict
+from collections import UserList, defaultdict
 from dataclasses import asdict, dataclass, field
 from functools import cached_property
 from typing import Any, Dict, List, Tuple, Union
@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Tuple, Union
 JSON = Union[List[Any], Dict[str, Any]]
 DatedCollections = Dict[datetime.date, "Collection"]
 
+PRECISION = 2
 SEPARATOR = "@"
 DAY_FMT = "%y%m%d"
 DATE_FMT = f"{DAY_FMT}_%H%M%S"
@@ -58,6 +59,26 @@ class Collection(Node):
     @classmethod
     def load(cls, data: JSON) -> Collection:
         return cls(data["name"], [Item.load(item) for item in data["items"]])
+
+
+@dataclass(unsafe_hash=True)
+class Price(float):
+    price: float
+    date: datetime.date = field(repr=False)
+
+    def __new__(self, price: float, **kwargs):
+        return float.__new__(self, round(price, PRECISION))
+
+
+@dataclass(init=False)
+class Prices(UserList):
+    data: List[Price]
+
+    high = max
+    low = min
+
+    def __repr__(self):
+        return "[" + ", ".join(repr(price.price) for price in self) + "]"
 
 
 @dataclass
@@ -120,8 +141,8 @@ class MergedCollection(Node):
         )
 
     @cached_property
-    def price_map(self) -> Dict[datetime.date, List[Tuple[str, float]]]:
-        price_map = defaultdict(list)
+    def price_map(self) -> Dict[str, Prices]:
+        price_map = defaultdict(Prices)
         for (name, _), price_deltas in self.items.items():
             price = None
 
@@ -133,5 +154,5 @@ class MergedCollection(Node):
                     price = 0.0
 
                 price += price_delta
-                price_map[name].append((date, price))
+                price_map[name].append(Price(price, date=date))
         return price_map
