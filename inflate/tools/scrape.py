@@ -20,7 +20,7 @@ def main(argv: Optional[List[str]] = None) -> None:
     if options.scraper:
         scrapers = [AVAILABLE_SCRAPERS[options.scraper.casefold()]]
     else:
-        scrapers = AVAILABLE_SCRAPERS.values()
+        scrapers = list(AVAILABLE_SCRAPERS.values())
 
     collections = run_scrapers(scrapers=scrapers)
 

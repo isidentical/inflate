@@ -9,7 +9,7 @@ from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Dict, Iterator, Literal
+from typing import IO, Any, Dict, Iterator, Literal
 
 import requests
 from rich import print
@@ -21,6 +21,7 @@ from inflate.format import (
     Collection,
     DatedCollections,
     MergedCollection,
+    Prices,
 )
 from inflate.utils import exhaust
 
@@ -47,14 +48,14 @@ GroupedCollections = Dict[str, DatedCollections]
 MergedCollections = Dict[str, MergedCollection]
 
 
-def make_api_call(endpoint: str, **kwargs) -> JSON:
+def make_api_call(endpoint: str, **kwargs) -> Dict[str, Any]:
     kwargs.setdefault("auth", GITHUB_AUTH)
     response = requests.get(API_BASE + endpoint, **kwargs)
     response.raise_for_status()
     return response.json()
 
 
-def iter_artifacts(repository: str = DEFAULT_REPO) -> Iterator[JSON]:
+def iter_artifacts(repository: str = DEFAULT_REPO) -> Iterator[Dict[str, Any]]:
     page = 1
     while True:
         data = make_api_call(
@@ -68,7 +69,7 @@ def iter_artifacts(repository: str = DEFAULT_REPO) -> Iterator[JSON]:
         page += 1
 
 
-def get_artifact(url: str) -> None:
+def get_artifact(url: str) -> IO[bytes]:
     response = requests.get(url, auth=GITHUB_AUTH)
     response.raise_for_status()
 
@@ -94,7 +95,7 @@ def collect_artifacts(path: Path, repository: str = DEFAULT_REPO) -> None:
 
 
 def deserialize_tree(path: Path) -> GroupedCollections:
-    stores = defaultdict(dict)
+    stores: GroupedCollections = defaultdict(dict)
     for store in path.iterdir():
         for collection in store.glob("*.json"):
             date = datetime.datetime.strptime(collection.stem, DATE_FMT).date()
@@ -125,7 +126,7 @@ def generate_collections() -> MergedCollections:
 def find_most_volatile(
     collection: MergedCollection, *, volatility_threshold: int = 3
 ) -> None:
-    groups = defaultdict(dict)
+    groups: Dict[int, Dict[str, Prices]] = defaultdict(dict)
     for name, prices in collection.price_map.items():
         num_prices = len(prices)
         if num_prices <= volatility_threshold:
@@ -154,12 +155,14 @@ def price_changes(
                 f"({initial_price:6.1f} -> {current_price:6.1f})",
             )
 
-    increased, decreased = {}, {}
+    increased: Dict[float, Any] = {}
+    decreased: Dict[float, Any] = {}
+
     for name, prices in collection.price_map.items():
         if len(prices) <= 1:
             continue
 
-        initial_price, current_price = prices[-2], prices[-1]
+        initial_price, current_price = prices[0], prices[-1]
         change = current_price - initial_price
         if change > 0:
             data = increased
@@ -179,7 +182,7 @@ def price_changes(
         dump_price_changes(sorted(decreased.items()))
 
 
-ANALYZERS = {"price_changes": price_changes, "volatility": find_most_volatile}
+ANALYZERS = {"price_changes": price_changes, "volatility": find_most_volatile}  # type: ignore
 
 
 def main():

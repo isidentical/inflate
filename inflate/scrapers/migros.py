@@ -1,4 +1,4 @@
-from typing import Iterator
+from typing import Any, Iterator
 
 from inflate.format import JSON, Collection, Item
 from inflate.request import make_call, requests
@@ -11,7 +11,7 @@ EMPTY_ITEM = {"metaData": {}, "pageCount": 0, "storeProductInfos": []}
 class Migros(Scraper):
 
     BASE_URL = "https://www.migros.com.tr/rest/products/search"
-    CONFIG = {"name": "migros", "categories": tuple(range(1, 11))}
+    CONFIG: Any = {"name": "migros", "categories": tuple(range(1, 11))}
 
     @robust(default=EMPTY_ITEM)
     def request(self, **kwargs) -> JSON:

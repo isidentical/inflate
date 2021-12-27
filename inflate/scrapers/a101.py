@@ -1,6 +1,6 @@
 import json
 import re
-from typing import Iterator
+from typing import Any, Iterator
 
 from inflate.format import JSON, Collection, Item
 from inflate.request import make_call, requests
@@ -12,13 +12,13 @@ RE_JSON = re.compile(
     flags=re.MULTILINE | re.DOTALL,
 )
 
-EMPTY_ITEM = {"@graph": {"itemListElement": []}}
+EMPTY_ITEM: Any = {"@graph": {"itemListElement": []}}
 
 
 class A101(Scraper):
 
     BASE_URL = "https://www.a101.com.tr/market"
-    CONFIG = {"name": "a101", "max_page_limit": 100}
+    CONFIG: Any = {"name": "a101", "max_page_limit": 100}
 
     @robust(default=EMPTY_ITEM)
     def request(self, **kwargs) -> JSON:

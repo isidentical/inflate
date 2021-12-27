@@ -16,11 +16,11 @@ DATE_FMT = f"{DAY_FMT}_%H%M%S"
 
 
 class Node:
-    def dump(self) -> JSON:
+    def dump(self) -> Dict[str, Any]:
         return asdict(self)
 
     @classmethod
-    def load(cls, data: JSON) -> Node:
+    def load(cls, data: Dict[str, Any]) -> Node:
         raise NotImplementedError
 
 
@@ -34,7 +34,7 @@ class Item(Node):
     metadata: Dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def load(cls, data: JSON) -> Item:
+    def load(cls, data: Dict[str, Any]) -> Item:
         return cls(
             data["name"], data["price"], data["category"], data["metadata"]
         )
@@ -57,7 +57,7 @@ class Collection(Node):
         self.items = list(item_map.values())
 
     @classmethod
-    def load(cls, data: JSON) -> Collection:
+    def load(cls, data: Dict[str, Any]) -> Collection:
         return cls(data["name"], [Item.load(item) for item in data["items"]])
 
 
@@ -117,7 +117,7 @@ class MergedCollection(Node):
 
         return instance
 
-    def dump(self) -> JSON:
+    def dump(self) -> Dict[str, Any]:
         raw_data = asdict(self)
         raw_data["items"] = {
             SEPARATOR.join(key): value
@@ -130,7 +130,7 @@ class MergedCollection(Node):
         return raw_data
 
     @classmethod
-    def load(cls, data: JSON) -> Collection:
+    def load(cls, data: Dict[str, Any]) -> MergedCollection:
         return cls(
             data["name"],
             items={key: prices for key, prices in data["items"].items()},
@@ -142,7 +142,7 @@ class MergedCollection(Node):
 
     @cached_property
     def price_map(self) -> Dict[str, Prices]:
-        price_map = defaultdict(Prices)
+        price_map: Dict[str, Prices] = defaultdict(Prices)
         for (name, _), price_deltas in self.items.items():
             price = None
 
