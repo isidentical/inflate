@@ -14,16 +14,13 @@ logger.setLevel(logging.DEBUG)
 
 def robust(default):
     def outer(func):
-        if not PRODUCTION:
-            return func
-
         @wraps(func)
         def wrapper(*args, **kwargs):
             try:
                 return func(*args, **kwargs)
             except Exception as e:
-                logger.exception()
-                return default_value
+                logger.exception("Error while processing function")
+                return default
 
         return wrapper
 
