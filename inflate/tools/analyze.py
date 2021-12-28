@@ -1,3 +1,4 @@
+import ast
 import datetime
 import io
 import json
@@ -7,9 +8,10 @@ import zipfile
 from argparse import ArgumentParser
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from functools import partial
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import IO, Any, Dict, Iterator, Literal
+from typing import IO, Any, Dict, Iterator, List, Literal, Tuple
 
 import requests
 from rich import print
@@ -142,27 +144,44 @@ def find_most_volatile(
 
 
 def price_changes(
-    collection: MergedCollection, *, max_items: int = 50
+    collection: MergedCollection,
+    *,
+    kind: Literal["today", "week", "all"],
+    max_items: int = 50,
 ) -> None:
     def dump_price_changes(data):
         for index, (change, [name, initial_price, current_price]) in enumerate(
-            data[:max_items]
+            data[:max_items], 1
         ):
             print(
                 f"{index}.".ljust(3),
                 repr(textwrap.shorten(name, width=45)).ljust(50),
                 f"{change:6.1f} TRY",
                 f"({initial_price:6.1f} -> {current_price:6.1f})",
+                f"[{initial_price.date} -> {current_price.date}]",
             )
 
     increased: Dict[float, Any] = {}
     decreased: Dict[float, Any] = {}
 
+    today = datetime.datetime.today().date()
+    if kind == "daily":
+        date_threshold = today
+    elif kind == "weekly":
+        date_threshold = today - datetime.timedelta(weeks=1)
+    elif kind == "all":
+        date_threshold = None
+    else:
+        raise ValueError("kind must be 'daily', 'weekly' or 'all'")
+
     for name, prices in collection.price_map.items():
         if len(prices) <= 1:
             continue
 
-        initial_price, current_price = prices[0], prices[-1]
+        initial_price, current_price = prices[-2], prices[-1]
+        if date_threshold is not None and date_threshold > current_price.date:
+            continue
+
         change = current_price - initial_price
         if change > 0:
             data = increased
@@ -185,10 +204,26 @@ def price_changes(
 ANALYZERS = {"price_changes": price_changes, "volatility": find_most_volatile}  # type: ignore
 
 
+def transform_args(args: List[str]) -> Dict[str, Any]:
+    data = {}
+    for raw_arg in args:
+        if ":" not in raw_arg:
+            raise ValueError("--arg format is key:value")
+
+        key, _, raw_value = raw_arg.partition(":")
+        try:
+            value = ast.literal_eval(raw_value)
+        except (ValueError, SyntaxError):
+            value = raw_value
+        data[key] = value
+    return data
+
+
 def main():
     parser = ArgumentParser()
     parser.add_argument("store", type=str.lower)
     parser.add_argument("analysis", choices=ANALYZERS.keys())
+    parser.add_argument("--arg", action="append")
 
     options = parser.parse_args()
 
@@ -198,7 +233,9 @@ def main():
             "store must be one of these: " + ", ".join(collections.keys())
         )
 
-    ANALYZERS[options.analysis](collections[options.store])
+    ANALYZERS[options.analysis](
+        collections[options.store], **transform_args(options.arg)
+    )
 
 
 if __name__ == "__main__":
