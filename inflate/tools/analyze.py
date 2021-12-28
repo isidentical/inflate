@@ -50,20 +50,17 @@ GroupedCollections = Dict[str, DatedCollections]
 MergedCollections = Dict[str, MergedCollection]
 
 
-def make_api_call(endpoint: str, **kwargs) -> Dict[str, Any]:
-    kwargs.setdefault("auth", GITHUB_AUTH)
-    response = requests.get(API_BASE + endpoint, **kwargs)
-    response.raise_for_status()
-    return response.json()
-
-
 def iter_artifacts(repository: str = DEFAULT_REPO) -> Iterator[Dict[str, Any]]:
     page = 1
     while True:
-        data = make_api_call(
-            "/repos/isidentical/inflate/actions/artifacts",
+        response = requests.get(
+            API_BASE + "/repos/isidentical/inflate/actions/artifacts",
+            auth=GITHUB_AUTH,
             params={"page": page, "per_page": 100},
         )
+        response.raise_for_status()
+
+        data = response.json()
         if len(artifacts := data["artifacts"]) == 0:
             return None
 
@@ -74,7 +71,6 @@ def iter_artifacts(repository: str = DEFAULT_REPO) -> Iterator[Dict[str, Any]]:
 def get_artifact(url: str) -> IO[bytes]:
     response = requests.get(url, auth=GITHUB_AUTH)
     response.raise_for_status()
-
     return io.BytesIO(response.content)
 
 
