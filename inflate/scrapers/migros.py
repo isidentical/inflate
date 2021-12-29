@@ -11,7 +11,7 @@ EMPTY_ITEM = {"metaData": {}, "pageCount": 0, "storeProductInfos": []}
 class Migros(Scraper):
 
     BASE_URL = "https://www.migros.com.tr/rest/products/search"
-    CONFIG: Any = {"name": "migros", "categories": tuple(range(1, 11))}
+    CONFIG: Any = {"name": "migros", "categories": list(range(1, 11))}
 
     @robust(default=EMPTY_ITEM)
     def request(self, **kwargs) -> JSON:
@@ -24,8 +24,8 @@ class Migros(Scraper):
     def collect_category(self, category: int) -> Iterator[Item]:
         logger.debug(
             "  Collecting category %d/%d",
-            category,
-            max(self.CONFIG["categories"]),
+            self.CONFIG["categories"].index(category),
+            len(self.CONFIG["categories"]),
         )
 
         meta = self.request(params={"category-id": category, "page": 0})
