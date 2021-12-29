@@ -3,7 +3,7 @@ from typing import Any, Iterator
 from inflate.format import JSON, Collection, Item
 from inflate.request import make_call, requests
 from inflate.scrapers.scraper import Scraper
-from inflate.utils import logger, robust
+from inflate.utils import progress, robust
 
 EMPTY_ITEM = {"metaData": {}, "pageCount": 0, "storeProductInfos": []}
 
@@ -22,20 +22,16 @@ class Migros(Scraper):
         return data["data"]
 
     def collect_category(self, category: int) -> Iterator[Item]:
-        logger.debug(
-            "  Collecting category %d/%d",
-            self.CONFIG["categories"].index(category),
-            len(self.CONFIG["categories"]),
-        )
-
         meta = self.request(params={"category-id": category, "page": 0})
         category_name = meta["metaData"].get("title")
         if category_name is None:
             return None
 
-        for page in range(meta["pageCount"] + 1):
+        for page in progress(
+            range(meta["pageCount"] + 1),
+            description=f"Scraping {category_name!r}",
+        ):
             data = self.request(params={"category-id": category, "page": page})
-            logger.debug("    Collecting page %d/%d", page, meta["pageCount"])
 
             for product in data["storeProductInfos"]:
                 yield Item(
@@ -51,7 +47,6 @@ class Migros(Scraper):
                 )
 
     def scrape(self) -> Collection:
-        logger.debug("Collecting %s", self.CONFIG["name"])
         return Collection(
             name=self.CONFIG["name"],
             items=[

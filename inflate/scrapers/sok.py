@@ -5,7 +5,7 @@ from requests import HTTPError
 from inflate.format import JSON, Collection, Item
 from inflate.request import make_call, requests
 from inflate.scrapers.scraper import Scraper
-from inflate.utils import logger, robust
+from inflate.utils import progress, robust
 
 EMPTY_ITEM = {"pagination": {"page_count": 0}, "payload": {"products": []}}
 
@@ -35,12 +35,10 @@ class Sok(Scraper):
         return data
 
     def scrape(self) -> Collection:
-        logger.debug("Collecting %s", self.CONFIG["name"])
-
         meta = self.request(category=0, params={"stock": "true", "page": 0})
 
         items = []
-        for page in range(1, meta["pagination"]["page_count"] + 1):
+        for page in progress(range(1, meta["pagination"]["page_count"] + 1)):
             data = self.request(
                 category=0, params={"stock": "true", "page": page}
             )

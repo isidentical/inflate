@@ -5,7 +5,7 @@ from typing import Any, Iterator
 from inflate.format import JSON, Collection, Item
 from inflate.request import make_call, requests
 from inflate.scrapers.scraper import Scraper
-from inflate.utils import logger, robust
+from inflate.utils import progress, robust
 
 RE_JSON = re.compile(
     r"<script type=\"application\/ld\+json\">(.*?)<\/script>\n",
@@ -18,13 +18,15 @@ EMPTY_ITEM: Any = {"@graph": {"itemListElement": []}}
 class A101(Scraper):
 
     BASE_URL = "https://www.a101.com.tr/market"
-    CONFIG: Any = {"name": "a101", "max_page_limit": 100}
+    CONFIG: Any = {"name": "a101", "max_page_limit": 50}
 
     @robust(default=EMPTY_ITEM)
     def request(self, **kwargs) -> JSON:
         response = make_call(self.BASE_URL, **kwargs)
 
-        assert (match := RE_JSON.search(response.text))
+        if not (match := RE_JSON.search(response.text)):
+            return EMPTY_ITEM
+
         return json.loads(match.group(1))
 
     def collect_page(self, page: int) -> Iterator[Item]:
@@ -45,12 +47,9 @@ class A101(Scraper):
             )
 
     def scrape(self) -> Collection:
-        logger.debug("Collecting %s", self.CONFIG["name"])
-
         page = 0
         collection = Collection(self.CONFIG["name"])
-        while page < self.CONFIG["max_page_limit"]:
-            logger.debug("     Collecting page %d", page)
+        for _ in progress(range(self.CONFIG["max_page_limit"])):
             items = list(self.collect_page(page))
             if not items:
                 break

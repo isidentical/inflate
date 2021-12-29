@@ -1,7 +1,9 @@
 import logging
 import os
 from collections import deque
-from functools import wraps
+from functools import partial, wraps
+
+from rich.progress import track
 
 PRODUCTION = os.getenv("PRODUCTION")
 
@@ -29,3 +31,6 @@ def robust(default):
 
 def exhaust(iterable):
     return deque(iterable, maxlen=0)
+
+
+progress = partial(track, transient=True, description="Scraping")
