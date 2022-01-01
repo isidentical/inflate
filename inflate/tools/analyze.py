@@ -11,7 +11,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import partial
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import IO, Any, Dict, Iterator, List, Literal, Tuple
+from typing import IO, Any, Dict, Iterator, List, Literal, Optional, Tuple
 
 import requests
 from rich import print
@@ -160,7 +160,7 @@ def price_changes(
     increased: Dict[float, Any] = {}
     decreased: Dict[float, Any] = {}
 
-    today = datetime.datetime.today().date()
+    today = datetime.datetime.today().date() - datetime.timedelta(days=1)
     if kind == "daily":
         date_threshold = today
     elif kind == "weekly":
@@ -200,7 +200,8 @@ def price_changes(
 ANALYZERS = {"price_changes": price_changes, "volatility": find_most_volatile}  # type: ignore
 
 
-def transform_args(args: List[str]) -> Dict[str, Any]:
+def transform_args(args: Optional[List[str]] = None) -> Dict[str, Any]:
+    args = args or []
     data = {}
     for raw_arg in args:
         if ":" not in raw_arg:
