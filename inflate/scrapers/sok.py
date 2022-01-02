@@ -3,7 +3,7 @@ from typing import Iterator
 from requests import HTTPError
 
 from inflate.format import JSON, Collection, Item
-from inflate.request import make_call, requests
+from inflate.request import proxy_call
 from inflate.scrapers.scraper import Scraper
 from inflate.utils import progress, robust
 
@@ -21,7 +21,7 @@ class Sok(Scraper):
             "store-id", self.CONFIG["store-id"]
         )
         try:
-            response = make_call(
+            response = proxy_call(
                 self.BASE_URL.format(category=category), **kwargs
             )
         except HTTPError as exc:
@@ -30,6 +30,9 @@ class Sok(Scraper):
                 return EMPTY_ITEM
             else:
                 raise
+
+        if response is None:
+            return EMPTY_ITEM
 
         data = response.json()
         return data

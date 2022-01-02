@@ -167,6 +167,8 @@ def price_changes(
         date_threshold = today - datetime.timedelta(weeks=1)
     elif kind == "all":
         date_threshold = None
+    elif isinstance(kind, int):
+        date_threshold = today - datetime.timedelta(days=kind)
     else:
         raise ValueError("kind must be 'daily', 'weekly' or 'all'")
 
