@@ -4,7 +4,7 @@ import datetime
 from collections import UserList, defaultdict
 from dataclasses import asdict, dataclass, field
 from functools import cached_property
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 JSON = Union[List[Any], Dict[str, Any]]
 DatedCollections = Dict[datetime.date, "Collection"]
@@ -62,11 +62,24 @@ class Collection(Node):
 
 
 @dataclass(unsafe_hash=True)
+class RawProduct(str, Node):
+    name: str
+    category: str
+
+    def __new__(self, name: str, *args, **kwargs):
+        return str.__new__(self, name)
+
+    @classmethod
+    def load(cls, data: Dict[str, Any]) -> RawProduct:
+        return cls(**data)
+
+
+@dataclass(unsafe_hash=True)
 class Price(float):
     price: float
     date: datetime.date = field(repr=False)
 
-    def __new__(self, price: float, **kwargs):
+    def __new__(self, price: float, *args, **kwargs):
         return float.__new__(self, round(price, PRECISION))
 
 
@@ -86,7 +99,9 @@ class MergedCollection(Node):
     """A unification of multiple collections from a single source."""
 
     name: str
-    items: Dict[Tuple[str, str], List[float]] = field(default_factory=dict)
+    items: Dict[RawProduct, List[Optional[float]]] = field(
+        default_factory=dict
+    )
     collection_dates: List[datetime.date] = field(default_factory=list)
 
     @classmethod
@@ -108,7 +123,7 @@ class MergedCollection(Node):
         ):
             instance.collection_dates.append(date)
             for item in collection.items:
-                key = (item.name, item.category)
+                key = RawProduct(item.name, item.category)
                 last_price = fill_prices(key, index)
                 instance.items[key].append(item.price - last_price)
 
@@ -120,8 +135,7 @@ class MergedCollection(Node):
     def dump(self) -> Dict[str, Any]:
         raw_data = asdict(self)
         raw_data["items"] = {
-            SEPARATOR.join(key): value
-            for key, value in raw_data["items"].items()
+            key.dump(): value for key, value in raw_data["items"].items()
         }
         raw_data["collection_dates"] = [
             collection_date.strftime(DAY_FMT)
@@ -133,7 +147,10 @@ class MergedCollection(Node):
     def load(cls, data: Dict[str, Any]) -> MergedCollection:
         return cls(
             data["name"],
-            items={key: prices for key, prices in data["items"].items()},
+            items={
+                RawProduct.load(key): prices
+                for key, prices in data["items"].items()
+            },
             collection_dates=[
                 datetime.datetime.strptime(raw_date, DAY_FMT)
                 for raw_date in data["collection_dates"]
@@ -143,7 +160,7 @@ class MergedCollection(Node):
     @cached_property
     def price_map(self) -> Dict[str, Prices]:
         price_map: Dict[str, Prices] = defaultdict(Prices)
-        for (name, _), price_deltas in self.items.items():
+        for product, price_deltas in self.items.items():
             price = None
 
             for date, price_delta in zip(self.collection_dates, price_deltas):
@@ -154,5 +171,5 @@ class MergedCollection(Node):
                     price = 0.0
 
                 price += price_delta
-                price_map[name].append(Price(price, date=date))
+                price_map[product].append(Price(price, date=date))
         return price_map

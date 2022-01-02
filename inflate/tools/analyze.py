@@ -199,7 +199,29 @@ def price_changes(
         dump_price_changes(sorted(decreased.items()))
 
 
-ANALYZERS = {"price_changes": price_changes, "volatility": find_most_volatile}  # type: ignore
+def cpi(collection: MergedCollection, *, file: Optional[str] = None) -> None:
+    if file is None:
+        print("[red] Please pass a file through --arg file:<path>[/red]")
+        exit(1)
+
+    data: Dict[str, Dict[str, int]] = defaultdict(lambda: defaultdict(int))
+
+    for product, prices in collection.items.items():
+        if prices.count(None) >= 1:
+            continue
+
+        current_price = 0
+        for date, price in zip(collection.collection_dates, prices):
+            assert price is not None
+
+            current_price += price  # type: ignore
+            data[product.category][str(date)] += current_price
+
+    with open(file, "w") as stream:
+        json.dump(cpi, stream, ensure_ascii=False)
+
+
+ANALYZERS = {"cpi": cpi, "price_changes": price_changes, "volatility": find_most_volatile}  # type: ignore
 
 
 def transform_args(args: Optional[List[str]] = None) -> Dict[str, Any]:
