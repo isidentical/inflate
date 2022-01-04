@@ -11,7 +11,17 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import partial
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import IO, Any, Dict, Iterator, List, Literal, Optional, Tuple
+from typing import (
+    IO,
+    Any,
+    Dict,
+    Iterator,
+    List,
+    Literal,
+    Optional,
+    Tuple,
+    Union,
+)
 
 import requests
 from rich import print
@@ -142,7 +152,7 @@ def find_most_volatile(
 def price_changes(
     collection: MergedCollection,
     *,
-    kind: Literal["today", "week", "all"],
+    kind: Union[int, Literal["daily", "weekly", "all"]] = "daily",
     max_items: int = 50,
 ) -> None:
     def dump_price_changes(data):
@@ -218,7 +228,7 @@ def cpi(collection: MergedCollection, *, file: Optional[str] = None) -> None:
             data[product.category][str(date)] += current_price
 
     with open(file, "w") as stream:
-        json.dump(cpi, stream, ensure_ascii=False)
+        json.dump(data, stream, ensure_ascii=False)
 
 
 ANALYZERS = {"cpi": cpi, "price_changes": price_changes, "volatility": find_most_volatile}  # type: ignore
