@@ -209,26 +209,48 @@ def price_changes(
         dump_price_changes(sorted(decreased.items()))
 
 
+def fill_prices(prices: List[Optional[float]]) -> Optional[List[float]]:
+    if prices[0] is None:
+        return None
+
+    if prices.count(None) >= len(prices) / 4:
+        return None
+
+    return [price if price is not None else 0 for price in prices]
+
+
 def cpi(collection: MergedCollection, *, file: Optional[str] = None) -> None:
     if file is None:
         print("[red] Please pass a file through --arg file:<path>[/red]")
         exit(1)
 
-    data: Dict[str, Dict[str, int]] = defaultdict(lambda: defaultdict(int))
+    data: Dict[str, List[float]] = defaultdict(list)
 
-    for product, prices in collection.items.items():
-        if prices.count(None) >= 1:
+    dates = [str(date) for date in collection.collection_dates]
+    for product, raw_prices in collection.items.items():
+        regular_prices = fill_prices(raw_prices)
+        if not regular_prices:
             continue
 
         current_price = 0
-        for date, price in zip(collection.collection_dates, prices):
+        for index, price in enumerate(regular_prices):
             assert price is not None
 
             current_price += price  # type: ignore
-            data[product.category][str(date)] += current_price
+            try:
+                index_price = data[product.category][index]
+            except IndexError:
+                index_price = 0
+                data[product.category].append(index_price)
+
+            data[product.category][index] = index_price + current_price
 
     with open(file, "w") as stream:
-        json.dump(data, stream, ensure_ascii=False)
+        json.dump(
+            {"store": collection.name, "index": data, "dates": dates},
+            stream,
+            ensure_ascii=False,
+        )
 
 
 ANALYZERS = {"cpi": cpi, "price_changes": price_changes, "volatility": find_most_volatile}  # type: ignore
